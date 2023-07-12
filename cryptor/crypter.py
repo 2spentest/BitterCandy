@@ -40,10 +40,11 @@ with open('key_iv.bin', 'wb') as f:
     f.write(key)
     f.write(iv)
 print("Key and IV saved to: key_iv.bin")
-
+print()
+print("-"*len(key)*5)
 # Print the results
 print("Key:")
 print(','.join('0x{:02x}'.format(x) for x in key))
 print("IV:")
 print(','.join('0x{:02x}'.format(x) for x in iv))
-
+print("-"*len(key)*5)
