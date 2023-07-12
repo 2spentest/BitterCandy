@@ -34,10 +34,16 @@ shellcode = read_shellcode_from_file(input_file)
 encrypted_data = encrypt(shellcode, key, iv)
 
 save_encrypted_data_to_file(output_file, encrypted_data)
+print("Encrypted shellcode saved to:", output_file)
+
+with open('key_iv.bin', 'wb') as f:
+    f.write(key)
+    f.write(iv)
+print("Key and IV saved to: key_iv.bin")
 
 # Print the results
 print("Key:")
 print(','.join('0x{:02x}'.format(x) for x in key))
 print("IV:")
 print(','.join('0x{:02x}'.format(x) for x in iv))
-print("Encrypted shellcode saved to:", output_file)
+
